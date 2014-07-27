@@ -47,7 +47,7 @@ class OauthController {
             session[SESSION_TOKEN_EXPIRATION_KEY] = new Date(now.time + resp.json.expires_in * 1000 as long).time
         }
 
-        redirect uri: '/'
+        redirect controller:'home'
     }
 
     def callback() {
@@ -72,6 +72,11 @@ class OauthController {
                 session[SESSION_TOKEN_EXPIRATION_KEY] = new Date(now.time + resp.json.expires_in * 1000 as long).time
             }
         }
-        redirect uri:'/'
+        redirect controller:'home'
+    }
+
+    def logout(){
+        session.invalidate()
+        redirect controller: 'home'
     }
 }
