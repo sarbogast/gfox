@@ -115,3 +115,6 @@ log4j.main = {
            'org.hibernate',
            'net.sf.ehcache.hibernate'
 }
+
+gfox.client.id = "CLIENT_ID"
+gfox.client.secret = "CLIENT_SECRET"
