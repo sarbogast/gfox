@@ -6,7 +6,7 @@ class HomeController {
         def accessToken = session[OauthController.SESSION_ACCESS_TOKEN_KEY] as String
         def refreshToken = session[OauthController.SESSION_REFRESH_TOKEN_KEY] as String
         def accessTokenExpirationTimestamp = session[OauthController.SESSION_TOKEN_EXPIRATION_KEY] as Long
-
+        def source = params.source
 
         if(accessToken != null){
             def now = new Date().time
@@ -21,6 +21,7 @@ class HomeController {
                 redirect controller: 'oauth', action: 'refresh'
             }
         } else {
+            session[OauthController.SESSION_SOURCE_KEY] = source
             redirect controller: 'oauth', action: 'index'
         }
     }

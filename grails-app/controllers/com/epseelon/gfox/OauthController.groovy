@@ -1,5 +1,6 @@
 package com.epseelon.gfox
 
+import grails.converters.JSON
 import grails.plugins.rest.client.RestBuilder
 import grails.plugins.rest.client.RestResponse
 import org.springframework.http.HttpStatus
@@ -13,6 +14,7 @@ class OauthController {
     static final SESSION_ACCESS_TOKEN_KEY = "access_token"
     static final SESSION_REFRESH_TOKEN_KEY = "refresh_token"
     static final SESSION_TOKEN_EXPIRATION_KEY = "access_token_expiration"
+    static final SESSION_SOURCE_KEY = "source"
 
     def rest = new RestBuilder()
 
@@ -53,11 +55,12 @@ class OauthController {
     def callback() {
         def clientId = grailsApplication.config.gfox.client.id
         def clientSecret = grailsApplication.config.gfox.client.secret
+        def authorizationCode = params.code
 
         if(params.state?.equals(session[SESSION_MYFOX_UUID_KEY])){
             MultiValueMap<String, String> form = new LinkedMultiValueMap<String, String>()
             form.add("grant_type", "authorization_code")
-            form.add("code", params.code)
+            form.add("code", authorizationCode)
             form.add("redirect_uri", createLink(controller:'oauth', action:'callback', absolute:true).toString())
 
             RestResponse resp = rest.post(MYFOX_OAUTH_URL) {
@@ -70,9 +73,25 @@ class OauthController {
                 session[SESSION_REFRESH_TOKEN_KEY] = resp.json.refresh_token
                 Date now = new Date()
                 session[SESSION_TOKEN_EXPIRATION_KEY] = new Date(now.time + resp.json.expires_in * 1000 as long).time
+
+                def result = [
+                        accessToken: session[SESSION_ACCESS_TOKEN_KEY],
+                        refreshToken: session[SESSION_REFRESH_TOKEN_KEY],
+                        tokenExpirationTimestamp: session[SESSION_TOKEN_EXPIRATION_KEY]
+                ]
+
+                if(session[SESSION_SOURCE_KEY] == 'pebble'){
+                    redirect uri:"pebblejs://close#${(result as JSON).toString(false).encodeAsURL()}"
+                } else {
+                    redirect controller: 'home'
+                }
+            } else if(resp.json.error){
+                log.error "${resp.json.error} : ${resp.json.error_description}"
+                flash.message = resp.json.error_description
+
+                redirect controller:'home'
             }
         }
-        redirect controller:'home'
     }
 
     def logout(){

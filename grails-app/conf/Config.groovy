@@ -88,6 +88,7 @@ grails.hibernate.osiv.readonly = false
 environments {
     development {
         grails.logging.jul.usebridge = true
+        grails.serverURL = "http://10.0.1.2:8080/gfox"
     }
     production {
         grails.logging.jul.usebridge = false
