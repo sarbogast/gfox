@@ -7,42 +7,69 @@ import org.springframework.util.LinkedMultiValueMap
 import org.springframework.util.MultiValueMap
 
 class OauthController {
+    static final MYFOX_OAUTH_URL = "https://api.myfox.me/oauth2/token"
+    static final MYFOX_AUTHORIZE_URL = "https://api.myfox.me/oauth2/authorize"
+    static final SESSION_MYFOX_UUID_KEY = "myfoxUUID"
+    static final SESSION_ACCESS_TOKEN_KEY = "access_token"
+    static final SESSION_REFRESH_TOKEN_KEY = "refresh_token"
+    static final SESSION_TOKEN_EXPIRATION_KEY = "access_token_expiration"
+
     def rest = new RestBuilder()
 
     def index() {
         def clientId = grailsApplication.config.gfox.client.id
         def uuid = UUID.randomUUID().toString()
-        session["myfoxUUID"] = uuid
+        session[SESSION_MYFOX_UUID_KEY] = uuid
         def redirectUrl = createLink(controller:'oauth', action:'callback', absolute:true)
-        def url = "https://api.myfox.me/oauth2/authorize?response_type=code&client_id=${clientId.encodeAsURL()}&redirect_uri=${redirectUrl.encodeAsURL()}&state=${uuid}"
+        def url = "${MYFOX_AUTHORIZE_URL}?response_type=code&client_id=${clientId.encodeAsURL()}&redirect_uri=${redirectUrl.encodeAsURL()}&state=${uuid}"
         redirect(url: url)
+    }
+
+    def refresh() {
+        def clientId = grailsApplication.config.gfox.client.id
+        def clientSecret = grailsApplication.config.gfox.client.secret
+
+        MultiValueMap<String, String> form = new LinkedMultiValueMap<String, String>()
+        form.add("grant_type", "refresh_token")
+        form.add("refresh_token", session["refresh_token"] as String)
+        form.add("redirect_uri", createLink(controller:'oauth', action:'callback', absolute:true).toString())
+
+        RestResponse resp = rest.post(MYFOX_OAUTH_URL) {
+            auth clientId, clientSecret
+            contentType "application/x-www-form-urlencoded"
+            body form
+        }
+
+        if(resp.responseEntity.statusCode == HttpStatus.OK && resp.json.access_token != null){
+            session[SESSION_ACCESS_TOKEN_KEY] = resp.json.access_token
+            session[SESSION_REFRESH_TOKEN_KEY] = resp.json.refresh_token
+            Date now = new Date()
+            session[SESSION_TOKEN_EXPIRATION_KEY] = new Date(now.time + resp.json.expires_in * 1000 as long).time
+        }
+
+        redirect uri: '/'
     }
 
     def callback() {
         def clientId = grailsApplication.config.gfox.client.id
         def clientSecret = grailsApplication.config.gfox.client.secret
 
-        if(params.state?.equals(session["myfoxUUID"])){
-            println "code: ${params.code}"
-
-            def url = "https://api.myfox.me/oauth2/token"
-
+        if(params.state?.equals(session[SESSION_MYFOX_UUID_KEY])){
             MultiValueMap<String, String> form = new LinkedMultiValueMap<String, String>()
             form.add("grant_type", "authorization_code")
             form.add("code", params.code)
             form.add("redirect_uri", createLink(controller:'oauth', action:'callback', absolute:true).toString())
 
-            RestResponse resp = rest.post(url, form) {
+            RestResponse resp = rest.post(MYFOX_OAUTH_URL) {
                 auth clientId, clientSecret
                 contentType "application/x-www-form-urlencoded"
                 body form
             }
-            println resp.json
             if(resp.responseEntity.statusCode == HttpStatus.OK && resp.json.access_token != null){
-                session["access_token"] = resp.json.access_token
-                session["refresh_token"] = resp.json.refresh_token
+                session[SESSION_ACCESS_TOKEN_KEY] = resp.json.access_token
+                session[SESSION_REFRESH_TOKEN_KEY] = resp.json.refresh_token
                 Date now = new Date()
-                session["access_token_expiration"] = new Date(now.time + resp.json.expires_in * 1000 as long).time
+                session[SESSION_TOKEN_EXPIRATION_KEY] = new Date(now.time + resp.json.expires_in * 1000 as long).time
             }
         }
         redirect uri:'/'
