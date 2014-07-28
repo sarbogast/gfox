@@ -73,24 +73,11 @@ class OauthController {
                 session[SESSION_REFRESH_TOKEN_KEY] = resp.json.refresh_token
                 Date now = new Date()
                 session[SESSION_TOKEN_EXPIRATION_KEY] = new Date(now.time + resp.json.expires_in * 1000 as long).time
-
-                def result = [
-                        accessToken: session[SESSION_ACCESS_TOKEN_KEY],
-                        refreshToken: session[SESSION_REFRESH_TOKEN_KEY],
-                        tokenExpirationTimestamp: session[SESSION_TOKEN_EXPIRATION_KEY]
-                ]
-
-                if(session[SESSION_SOURCE_KEY] == 'pebble'){
-                    redirect uri:"pebblejs://close#${(result as JSON).toString(false).encodeAsURL()}"
-                } else {
-                    redirect controller: 'home'
-                }
             } else if(resp.json.error){
                 log.error "${resp.json.error} : ${resp.json.error_description}"
                 flash.message = resp.json.error_description
-
-                redirect controller:'home'
             }
+            redirect controller:'home'
         }
     }
 

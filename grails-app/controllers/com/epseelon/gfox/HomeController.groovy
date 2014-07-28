@@ -1,5 +1,7 @@
 package com.epseelon.gfox
 
+import grails.converters.JSON
+
 class HomeController {
 
     def index() {
@@ -12,11 +14,21 @@ class HomeController {
             def now = new Date().time
             if(accessTokenExpirationTimestamp - 10*60 > now){
                 //if the token expires in more than 10 minutes, we can still use it
-                render view:'/index', model: [
-                        accessToken: accessToken,
-                        refreshToken: refreshToken,
-                        accessTokenExpirationTimestamp: accessTokenExpirationTimestamp
-                ]
+                if(session[OauthController.SESSION_SOURCE_KEY] == 'pebble'){
+                    def result = [
+                            accessToken: accessToken,
+                            refreshToken: refreshToken,
+                            accessTokenExpirationTimestamp: accessTokenExpirationTimestamp / 1000
+                    ]
+
+                    redirect uri:"pebblejs://close#${(result as JSON).toString(false).encodeAsURL()}"
+                } else {
+                    render view:'/index', model: [
+                            accessToken: accessToken,
+                            refreshToken: refreshToken,
+                            accessTokenExpirationTimestamp: accessTokenExpirationTimestamp
+                    ]
+                }
             } else {
                 redirect controller: 'oauth', action: 'refresh'
             }
