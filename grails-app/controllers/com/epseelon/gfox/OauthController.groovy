@@ -30,10 +30,11 @@ class OauthController {
     def refresh() {
         def clientId = grailsApplication.config.gfox.client.id
         def clientSecret = grailsApplication.config.gfox.client.secret
+        def refreshToken = params.refresh_token ?: session[SESSION_REFRESH_TOKEN_KEY]
 
         MultiValueMap<String, String> form = new LinkedMultiValueMap<String, String>()
         form.add("grant_type", "refresh_token")
-        form.add("refresh_token", session["refresh_token"] as String)
+        form.add("refresh_token", refreshToken as String)
         form.add("redirect_uri", createLink(controller:'oauth', action:'callback', absolute:true).toString())
 
         RestResponse resp = rest.post(MYFOX_OAUTH_URL) {
@@ -49,7 +50,16 @@ class OauthController {
             session[SESSION_TOKEN_EXPIRATION_KEY] = new Date(now.time + resp.json.expires_in * 1000 as long).time
         }
 
-        redirect controller:'home'
+        if(params.source == 'pebble'){
+            def result = [
+                accessToken: session[SESSION_ACCESS_TOKEN_KEY],
+                refreshToken: session[SESSION_REFRESH_TOKEN_KEY],
+                accessTokenExpirationTimestamp: session[SESSION_TOKEN_EXPIRATION_KEY]
+            ]
+            render result as JSON
+        } else {
+            redirect controller:'home'
+        }
     }
 
     def callback() {
